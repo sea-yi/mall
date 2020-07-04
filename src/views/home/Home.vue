@@ -1,13 +1,20 @@
 <template>
     <div id="home">
       <nav-bar class="home-nav"><div slot="center">购物街</div></nav-bar>
-      <scroll class="content">
+      <scroll class="content"
+              ref="scroll"
+              :probe-type="3"
+              @scroll="contentScroll"
+              :pull-up-load="true"
+              @pullingUp="loadMore">
         <home-swiper :banners="banners"></home-swiper>
         <recommend-view :recommends="recommends"></recommend-view>
         <feature-view></feature-view>
         <tab-control class="tab-control" :titles="['流行','新款','精选']" @tabClick="tabClick"></tab-control>
         <goods-list :goods="showGoods"></goods-list>
       </scroll>
+
+      <back-top @click.native="backClick" v-show="isShowBackTop"></back-top>
     </div>
 </template>
 
@@ -21,6 +28,7 @@
   import Scroll from 'components/common/scroll/Scroll';
   import TabControl from 'components/content/tabControl/TabControl'
   import GoodsList from 'components/content/goods/GoodsList'
+  import BackTop from 'components/content/backTop/BackTop';
 
 
   import {getHomeMultidata, getHomeGoods} from "network/home";
@@ -37,6 +45,7 @@
         Scroll,
         TabControl,
         GoodsList,
+        BackTop,
       },
     data(){
         return {
@@ -47,7 +56,8 @@
             'new':{page:0,list:[]},
             'sell':{page:0,list:[]},
           },
-          currentType:'pop'
+          currentType:'pop',
+          isShowBackTop:false
         }
     },
     computed:{
@@ -63,12 +73,32 @@
       this.getHomeGoods('pop');
       this.getHomeGoods('new');
       this.getHomeGoods('sell');
+
+
+    },
+    mounted() {
+      //3.监听item汇总图片加载完成
+      const refresh = this.debounce(this.$refs.scroll.refresh)
+      this.$bus.$on('itemImageLoad',() => {
+        refresh()
+      })
     },
     methods:{
         /**
          * 事件监听相关的方法
          */
-        tabClick(index){
+
+      //防抖函数，防止refresh频繁调用
+      debounce(func,delay) {
+        let timer = null
+          return function (...args) {
+            if(timer) clearTimeout(timer)
+            timer = setTimeout(() => {
+              func.apply(this,args)
+            },delay)
+          }
+      },
+      tabClick(index){
           switch (index) {
             case 0:
               this.currentType = 'pop'
@@ -81,6 +111,15 @@
               break
           }
         },
+      backClick(){
+          this.$refs.scroll.scrollTo(0,0)
+      },
+      contentScroll(position){
+          this.isShowBackTop = -position.y > 1000
+        },
+      loadMore(){
+        this.getHomeGoods(this.currentType)
+      },
       /**
        * 网络请求相关的方法
        */
@@ -96,6 +135,8 @@
           console.log(res);
           this.goods[type].list.push(...res.data.list)
           this.goods[type].page += 1
+
+          this.$refs.scroll.finishPullUp()
         })
       }
     }
@@ -105,7 +146,7 @@
 <style scoped>
   #home {
     position: relative;
-    padding-top: 44px;
+    /*padding-top: 44px;*/
     height: 100vh;
   }
 
@@ -125,18 +166,18 @@
     z-index: 9;
   }
 
-  .content {
-    /*height: 300px;*/
-    /*overflow: hidden;*/
-    position: absolute;
-    top: 44px;
-    bottom: 49px;
-    left: 0;
-    right: 0;
-  }
-
   /*.content {*/
-    /*height: calc(100% - 93px);*/
-    /*margin-top: 44px;*/
+    /*!*height: 300px;*!*/
+    /*!*overflow: hidden;*!*/
+    /*position: absolute;*/
+    /*top: 44px;*/
+    /*bottom: 49px;*/
+    /*left: 0;*/
+    /*right: 0;*/
   /*}*/
+
+  .content {
+    height: calc(100% - 93px);
+    margin-top: 44px;
+  }
 </style>
